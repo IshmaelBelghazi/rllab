@@ -29,6 +29,7 @@ def parse_arguments():
     parser.add_argument('--nseeds', type=int, default=1, help='number of seeds per experiment')
     parser.add_argument('--seed', type=int, default=1, help='numpy random seed')
     parser.add_argument('--plot', action='store_true', help='plot policy performance')
+    parser.add_argument('--nparallel', type=int, default=1, help='number of parallel workers')
     return parser.parse_args()
 
 def dump_args(args, exp_name):
@@ -105,7 +106,7 @@ def run_experiments(args):
     run_experiment_lite(
         run_task_fun,
         # Number of parallel workers for sampling
-        n_parallel=1,
+        n_parallel=args.nparallel,
         # Only keep the snapshot parameters for the last iteration
         snapshot_mode="last",
         # Specifies the seed for the experiment. If this is not provided, a random seed
