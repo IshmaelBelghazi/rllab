@@ -106,7 +106,7 @@ def run_experiments(args):
     run_experiment_lite(
         run_task_fun,
         # Number of parallel workers for sampling
-        n_parallel=1,
+        n_parallel=args.nparallel,
         # Only keep the snapshot parameters for the last iteration
         snapshot_mode="last",
         # Specifies the seed for the experiment. If this is not provided, a random seed
