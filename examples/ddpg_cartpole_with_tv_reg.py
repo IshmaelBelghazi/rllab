@@ -29,6 +29,7 @@ def parse_arguments():
     parser.add_argument('--nseeds', type=int, default=1, help='number of seeds per experiment')
     parser.add_argument('--seed', type=int, default=1, help='numpy random seed')
     parser.add_argument('--plot', action='store_true', help='plot policy performance')
+    parser.add_argument('--nparallel', type=int, default=1, help='number of parallel workers')
     return parser.parse_args()
 
 def dump_args(args, exp_name):
