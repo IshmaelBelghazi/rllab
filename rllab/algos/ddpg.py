@@ -17,7 +17,7 @@ def get_tv(_grads, axis_to_keep=None):
     axes_to_sum = set(range(_tensor.ndim)).difference(
         set() if axis_to_keep is None else set(pack(axis_to_keep))
     )
-    return TT.mean(TT.sqrt(TT.sqr(_grads) + SMALL), axis=axes_to_sum)
+    return TT.sum(TT.sqrt(TT.sqr(_grads) + SMALL), axis=axes_to_sum)
 
 def parse_update_method(update_method, **kwargs):
     if update_method == 'adam':
@@ -133,6 +133,7 @@ class DDPG(RLAlgorithm):
         :param discount: Discount factor for the cumulative return.
         :param max_path_length: Discount factor for the cumulative return.
         :param qf_weight_decay: Weight decay factor for parameters of the Q function.
+        :param qf_tv_reg: Total variation regularization parameters factor for parameters of the Q function.
         :param qf_update_method: Online optimization method for training Q function.
         :param qf_learning_rate: Learning rate for training Q function.
         :param policy_weight_decay: Weight decay factor for parameters of the policy.
@@ -332,7 +333,7 @@ class DDPG(RLAlgorithm):
 
         f_train_qf = ext.compile_function(
             inputs=[yvar, obs, action],
-            outputs=[qf_loss, qval],
+            outputs=[qf_loss, qval, qf_tv],
             updates=qf_updates
         )
 
