@@ -120,13 +120,12 @@ def run_experiments(args):
 
 if __name__ == '__main__':
     args = parse_arguments()
-    for n in range(args.nexps):
+    tv_coefs = [0.] + [2.**x for x in range(-10, 6)]
+    for enumerate in tv_coefs:
         for _ in range(args.nseeds):
             args.seed = npr.randint(2**32)
-            if n == 0:
-                args.qf_tv_reg = 0.0
-            else:
-                args.qf_tv_reg = npr.uniform(low=0.0, high=args.max_tv)
+            args.qf_tv_reg = tv_coefs[n]
+            # args.qf_tv_reg = npr.uniform(low=0.0, high=args.max_tv)
             run_experiments(args)
     print('Collecting experiments info')
     experiments_df = make_monitoring_df(args.log_dir)
