@@ -12,12 +12,24 @@ import numpy as np
 import pyprind
 import lasagne
 
+#############
+## Helpers ##
+#############
 SMALL = 1e-6
 def get_tv(_grads, axis_to_keep=None):
-    axes_to_sum = set(range(_tensor.ndim)).difference(
+    axes_to_sum = set(range(_grads.ndim)).difference(
         set() if axis_to_keep is None else set(pack(axis_to_keep))
     )
     return TT.sum(TT.sqrt(TT.sqr(_grads) + SMALL), axis=axes_to_sum)
+
+def pack(arg):
+    """Pack variables into a list.
+    """
+    if isinstance(arg, (list, tuple)):
+        return list(arg)
+    else:
+        return [arg]
+
 
 def parse_update_method(update_method, **kwargs):
     if update_method == 'adam':
@@ -183,6 +195,7 @@ class DDPG(RLAlgorithm):
         self.pause_for_plot = pause_for_plot
 
         self.qf_loss_averages = []
+        self.qf_tvs = []
         self.policy_surr_averages = []
         self.q_averages = []
         self.y_averages = []
@@ -303,8 +316,8 @@ class DDPG(RLAlgorithm):
 
         # Regularization: TV
         # Computing total variation term
-        qf_input_grads = TT.grad([action], qval.mean())
-        qf_tv = T.mean(get_tv(qf_input_grads, axis_to_keep=0))
+        qf_input_grads = TT.grad(qval.mean(), action)
+        qf_tv = TT.mean(get_tv(qf_input_grads, axis_to_keep=0))
         qf_tv_reg_term = self.qf_tv_reg * qf_tv
 
         # qf loss
@@ -370,7 +383,7 @@ class DDPG(RLAlgorithm):
         f_train_qf = self.opt_info["f_train_qf"]
         f_train_policy = self.opt_info["f_train_policy"]
 
-        qf_loss, qval = f_train_qf(ys, obs, actions)
+        qf_loss, qval, qf_tv = f_train_qf(ys, obs, actions)
 
         policy_surr = f_train_policy(obs)
 
@@ -382,6 +395,7 @@ class DDPG(RLAlgorithm):
             self.qf.get_param_values() * self.soft_target_tau)
 
         self.qf_loss_averages.append(qf_loss)
+        self.qf_tvs.append(qf_tv)
         self.policy_surr_averages.append(policy_surr)
         self.q_averages.append(qval)
         self.y_averages.append(ys)
@@ -404,6 +418,11 @@ class DDPG(RLAlgorithm):
         all_ys = np.concatenate(self.y_averages)
 
         average_q_loss = np.mean(self.qf_loss_averages)
+        average_q_tv = np.mean(self.qf_tvs)
+        std_q_tv = np.std(self.qf_tvs)
+        min_q_tv = np.min(self.qf_tvs)
+        max_q_tv = np.max(self.qf_tvs)
+
         average_policy_surr = np.mean(self.policy_surr_averages)
         average_action = np.mean(np.square(np.concatenate(
             [path["actions"] for path in paths]
@@ -437,6 +456,10 @@ class DDPG(RLAlgorithm):
         logger.record_tabular('AverageDiscountedReturn',
                               average_discounted_return)
         logger.record_tabular('AverageQLoss', average_q_loss)
+        logger.record_tabular('AverageQTv', average_q_tv)
+        logger.record_tabular('StdQTv', std_q_tv)
+        logger.record_tabular('MinQTv', min_q_tv)
+        logger.record_tabular('MaxQTv', max_q_tv)
         logger.record_tabular('AveragePolicySurr', average_policy_surr)
         logger.record_tabular('AverageQ', np.mean(all_qs))
         logger.record_tabular('AverageAbsQ', np.mean(np.abs(all_qs)))
@@ -455,6 +478,7 @@ class DDPG(RLAlgorithm):
         self.policy.log_diagnostics(paths)
 
         self.qf_loss_averages = []
+        self.qf_tvs= []
         self.policy_surr_averages = []
 
         self.q_averages = []

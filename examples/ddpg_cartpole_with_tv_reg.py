@@ -11,8 +11,9 @@ from rllab.q_functions.continuous_mlp_q_function import ContinuousMLPQFunction
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description='Runs DDPG cartpole experiment')
-    parser.add_argument('--qf-tv-reg', type=float, help='Total variation regularisation coefficient for the q function')
-    parser.add_argument('--qf-weight-decay', type=float, help='Weight decay coefficient for the q-function')
+    parser.add_argument('--qf-tv-reg', type=float, default=0., help='Total variation regularisation coefficient for the q function')
+    parser.add_argument('--qf-weight-decay', default=0., type=float, help='Weight decay coefficient for the q-function')
+    parser.add_argument('--plot', action='store_true', help='plot policy performance')
     return parser.parse_args()
 
 def make_run_task(args):
@@ -45,6 +46,7 @@ def make_run_task(args):
             qf_tv_reg=args.qf_tv_reg,
             qf_weight_decay=args.qf_weight_decay,
             policy_learning_rate=1e-4,
+            plot=args.plot,
             # Uncomment both lines (this and the plot parameter below) to enable plotting
             # plot=True,
         )
@@ -62,9 +64,15 @@ def main(args):
         # Specifies the seed for the experiment. If this is not provided, a random seed
         # will be used
         seed=1,
-        # plot=True,
+        plot=args.plot,
     )
 
 if __name__ == '__main__':
     args = parse_arguments()
+    HEADER_MSG = """
+    ===========================================================================
+    Running cartpole experiment with: Weight decay = {}, TV regularization: {}'
+    ===========================================================================
+    """.format(args.qf_weight_decay, args.qf_tv_reg)
+    print(HEADER_MSG)
     main(args)
