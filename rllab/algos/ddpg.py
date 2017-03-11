@@ -12,6 +12,12 @@ import numpy as np
 import pyprind
 import lasagne
 
+SMALL = 1e-6
+def get_tv(_grads, axis_to_keep=None):
+    axes_to_sum = set(range(_tensor.ndim)).difference(
+        set() if axis_to_keep is None else set(pack(axis_to_keep))
+    )
+    return TT.mean(TT.sqrt(TT.sqr(_grads) + SMALL), axis=axes_to_sum)
 
 def parse_update_method(update_method, **kwargs):
     if update_method == 'adam':
@@ -100,6 +106,7 @@ class DDPG(RLAlgorithm):
             discount=0.99,
             max_path_length=250,
             qf_weight_decay=0.,
+            qf_tv_reg=0.,
             qf_update_method='adam',
             qf_learning_rate=1e-3,
             policy_weight_decay=0,
@@ -153,6 +160,7 @@ class DDPG(RLAlgorithm):
         self.discount = discount
         self.max_path_length = max_path_length
         self.qf_weight_decay = qf_weight_decay
+        self.qf_tv_reg = qf_tv_reg
         self.qf_update_method = \
             parse_update_method(
                 qf_update_method,
@@ -284,18 +292,31 @@ class DDPG(RLAlgorithm):
         )
         yvar = TT.vector('ys')
 
+        ## Q function
+        # Regularization: Weight decay
         qf_weight_decay_term = 0.5 * self.qf_weight_decay * \
                                sum([TT.sum(TT.square(param)) for param in
                                     self.qf.get_params(regularizable=True)])
 
         qval = self.qf.get_qval_sym(obs, action)
 
+        # Regularization: TV
+        # Computing total variation term
+        qf_input_grads = TT.grad([action], qval.mean())
+        qf_tv = T.mean(get_tv(qf_input_grads, axis_to_keep=0))
+        qf_tv_reg_term = self.qf_tv_reg * qf_tv
+
+        # qf loss
         qf_loss = TT.mean(TT.square(yvar - qval))
-        qf_reg_loss = qf_loss + qf_weight_decay_term
+        # qf regularized loss
+        qf_reg_loss = qf_loss + qf_weight_decay_term + qf_tv_reg_term
+
+        ## Policy
 
         policy_weight_decay_term = 0.5 * self.policy_weight_decay * \
                                    sum([TT.sum(TT.square(param))
                                         for param in self.policy.get_params(regularizable=True)])
+
         policy_qval = self.qf.get_qval_sym(
             obs, self.policy.get_action_sym(obs),
             deterministic=True
